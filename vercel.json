@@ -1,6 +1,7 @@
 {
   "rewrites": [
-    { "source": "/api/scan", "destination": "/api/scan" }
+    { "source": "/api/scan", "destination": "/api/scan" },
+    { "source": "/api/sync", "destination": "/api/sync" }
   ],
   "headers": [
     {
