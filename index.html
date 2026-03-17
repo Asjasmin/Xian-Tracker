@@ -461,6 +461,16 @@ function renderSettings(){
     </div>
     <button class="btn-full" onclick="saveSettings()">Save Settings 💕</button>
     <div class="card" style="padding:20px;margin-top:16px">
+      <div class="card-title">☁️ Cloud Sync</div>
+      <div style="font-size:12px;color:#888;margin-bottom:6px">Sync data across all your devices</div>
+      <div style="font-size:11px;color:#bbb;margin-bottom:14px">Last sync: <span style="font-weight:600;color:#7C5CBF">${lastSync}</span></div>
+      <div style="display:flex;gap:10px;margin-bottom:10px">
+        <button style="flex:1;padding:12px;border-radius:12px;border:none;background:linear-gradient(135deg,#7C5CBF,#C4ADEA);color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit" onclick="cloudPush()">⬆️ Push to Cloud</button>
+        <button style="flex:1;padding:12px;border-radius:12px;border:1.5px solid #C4ADEA;background:#fff;color:#7C5CBF;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit" onclick="cloudPull()">⬇️ Pull from Cloud</button>
+      </div>
+      <div style="font-size:10px;color:#ccc;text-align:center">Auto-syncs when you add expenses</div>
+    </div>
+    <div class="card" style="padding:20px;margin-top:16px">
       <div class="card-title">Data</div>
       <div style="font-size:13px;color:#888;margin-bottom:12px">Total expenses: <span style="font-weight:700;color:#3a3a4a">${exps.length}</span></div>
       <button class="btn-danger" onclick="if(confirm('Delete ALL expenses?')){exps=[];save();toast('Cleared');render()}">🗑️ Clear All Data</button>
@@ -493,6 +503,71 @@ function genPDF(){
   const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([html],{type:"text/html"}));a.download=`xian-expenses-${m}.html`;a.click();
   toast("Report downloaded 🌸");
 }
+
+// ═══ CLOUD SYNC ═══
+let syncing = false;
+let lastSync = localStorage.getItem("xian-lastsync") || "Never";
+
+async function cloudPush() {
+  if (syncing) return;
+  syncing = true;
+  try {
+    const r = await fetch("/api/sync", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ expenses: exps, settings })
+    });
+    const d = await r.json();
+    if (d.ok) {
+      lastSync = new Date().toLocaleString();
+      localStorage.setItem("xian-lastsync", lastSync);
+      toast("Synced to cloud ☁️✨");
+    } else {
+      toast("Sync failed: " + (d.error || "unknown"));
+    }
+  } catch (e) { toast("Sync error 😢"); }
+  syncing = false;
+  if (curView === "settings") renderSettings();
+}
+
+async function cloudPull() {
+  if (syncing) return;
+  syncing = true;
+  try {
+    const r = await fetch("/api/sync");
+    const d = await r.json();
+    if (d.expenses && d.expenses.length) {
+      // Merge: keep unique by id, cloud wins for duplicates
+      const merged = new Map();
+      exps.forEach(e => merged.set(e.id, e));
+      d.expenses.forEach(e => merged.set(e.id, e));
+      exps = Array.from(merged.values()).sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+      save();
+    }
+    if (d.settings) {
+      settings = d.settings;
+      saveS();
+    }
+    lastSync = new Date().toLocaleString();
+    localStorage.setItem("xian-lastsync", lastSync);
+    toast("Downloaded from cloud ☁️ (" + exps.length + " expenses)");
+    render();
+  } catch (e) { toast("Pull failed 😢"); }
+  syncing = false;
+  if (curView === "settings") renderSettings();
+}
+
+// Auto-sync on save (debounced)
+let syncTimer = null;
+const origSave = save;
+save = function() {
+  origSave();
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(() => cloudPush(), 3000); // auto-push 3s after last change
+};
+
+// Auto-pull on first load
+setTimeout(() => cloudPull(), 1000);
 
 // ═══ INIT ═══
 go("home");
