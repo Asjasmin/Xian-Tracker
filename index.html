@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -13,12 +14,12 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-body{font-family:'Poppins',sans-serif;background:linear-gradient(180deg,#FFF8FA,#FDF0F4 30%,#F8F4FF);min-height:100vh;color:#3a3a4a;overflow-x:hidden}
-.app{max-width:430px;margin:0 auto;position:relative;min-height:100vh;padding-bottom:100px}
+body{font-family:'Poppins',sans-serif;background:linear-gradient(180deg,#FFF8FA,#FDF0F4 30%,#F8F4FF);min-height:100vh;color:#3a3a4a;overflow-x:hidden;padding-top:env(safe-area-inset-top);padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right)}
+.app{max-width:430px;margin:0 auto;position:relative;min-height:100vh;padding-bottom:120px}
 .blob1{position:fixed;top:-60px;right:-40px;width:200px;height:200px;border-radius:50%;background:radial-gradient(circle,rgba(248,164,190,.2),transparent 70%);pointer-events:none}
 .blob2{position:fixed;bottom:100px;left:-60px;width:180px;height:180px;border-radius:50%;background:radial-gradient(circle,rgba(196,173,234,.15),transparent 70%);pointer-events:none}
 
-.header{padding:52px 24px 16px;display:flex;justify-content:space-between;align-items:center}
+.header{padding:16px 24px 16px;display:flex;justify-content:space-between;align-items:center}
 .brand-sub{font-size:11px;color:#C4ADEA;font-weight:600;letter-spacing:2px;text-transform:uppercase}
 .brand-main{font-size:24px;font-weight:800;color:#3a3a4a}
 .header-icons{display:flex;gap:8px}
@@ -82,7 +83,7 @@ body{font-family:'Poppins',sans-serif;background:linear-gradient(180deg,#FFF8FA,
 .cat-detail-bar{height:5px;border-radius:3px;background:#f5f5f5}
 .cat-detail-fill{height:100%;border-radius:3px;transition:width .5s}
 
-.bottom-nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:430px;background:linear-gradient(180deg,transparent,#FFF8FA 25%);padding:20px 24px 34px;display:flex;justify-content:center;gap:10px;z-index:10}
+.bottom-nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:430px;background:linear-gradient(180deg,transparent,#FFF8FA 25%);padding:16px 24px calc(12px + env(safe-area-inset-bottom));display:flex;justify-content:center;gap:10px;z-index:10}
 .nav-btn{padding:12px 18px;border-radius:14px;border:1.5px solid #f0f0f0;font-size:16px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .2s;background:#fff;color:#bbb}
 .nav-btn.active{border-color:transparent}
 .nav-scan{padding:12px 28px;border-radius:14px;border:none;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;background:linear-gradient(135deg,#D1477A,#E87DA8);color:#fff;box-shadow:0 4px 20px rgba(209,71,122,.3)}
