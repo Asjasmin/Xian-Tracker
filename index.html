@@ -318,9 +318,11 @@ function saveManual(){
 }
 
 // ═══ SCAN ═══
+let editingScanIdx = -1;
+
 $("fileInput").addEventListener("change",async e=>{
   const file=e.target.files?.[0];if(!file)return;
-  scanned=[];go("scan");$("v-scan").innerHTML=`<div style="font-size:20px;font-weight:700;margin-bottom:8px">📸 Scanning...</div><div class="spinner"><div class="icon">🔍</div><div style="font-size:14px;font-weight:600;margin-top:14px">Reading your screenshot...</div><div style="font-size:12px;color:#aaa;margin-top:4px">AI is extracting transactions ✨</div></div>`;
+  scanned=[];editingScanIdx=-1;go("scan");$("v-scan").innerHTML=`<div style="font-size:20px;font-weight:700;margin-bottom:8px">📸 Scanning...</div><div class="spinner"><div class="icon">🔍</div><div style="font-size:14px;font-weight:600;margin-top:14px">Reading your screenshot...</div><div style="font-size:12px;color:#aaa;margin-top:4px">AI is extracting transactions ✨</div></div>`;
   const reader=new FileReader();
   reader.onload=async ev=>{
     const b64=ev.target.result.split(",")[1];
@@ -334,19 +336,61 @@ $("fileInput").addEventListener("change",async e=>{
   reader.readAsDataURL(file);e.target.value="";
 });
 
+function toggleEditScan(i){
+  editingScanIdx = editingScanIdx === i ? -1 : i;
+  renderScan();
+}
+
+function updateScanField(i, field, value){
+  scanned[i][field] = field === 'amount' ? parseFloat(value) || 0 : value;
+}
+
 function renderScan(){
   let h=`<div style="font-size:20px;font-weight:700;margin-bottom:8px">📸 Scanned</div>`;
   if(!scanned.length){h+=`<div style="text-align:center;padding:60px;color:#aaa">No transactions found 😢<br>Try a clearer screenshot</div>`;$("v-scan").innerHTML=h;return}
-  h+=`<div style="font-size:12px;color:#aaa;margin-bottom:14px">Found ${scanned.length} expenses — review & save:</div>`;
+  h+=`<div style="font-size:12px;color:#aaa;margin-bottom:14px">Found ${scanned.length} expenses — tap ✏️ to edit, then save:</div>`;
   scanned.forEach((it,i)=>{
     const c=catFind(it.category);
+    const isEditing = editingScanIdx === i;
     h+=`<div class="scan-item" style="border:${it.sel?"1.5px solid "+c.accent:"1px solid #f0f0f0"};opacity:${it.sel?1:.5};box-shadow:${it.sel?"0 2px 12px rgba(0,0,0,.04)":"none"}">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
         <div class="scan-check" style="border:${it.sel?"none":"2px solid #ddd"};background:${it.sel?"#D1477A":"#fff"}" onclick="scanned[${i}].sel=!scanned[${i}].sel;renderScan()">${it.sel?"✓":""}</div>
         <div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:600;color:#3a3a4a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${it.description}</div><div style="font-size:10px;color:#bbb">${it.date} · ${it.remarks||""}</div></div>
         <div style="font-size:15px;font-weight:700;color:#D1477A">¥${(+it.amount).toFixed(2)}</div>
-      </div>
-      <div class="scan-cats">${CATS.map((c,ci)=>`<button class="scan-cat-btn" style="border:${(it.category||"").startsWith(c.name.split(" ")[0])?"1.5px solid "+c.fg:"1px solid #eee"};background:${(it.category||"").startsWith(c.name.split(" ")[0])?c.bg:"#fff"};color:${(it.category||"").startsWith(c.name.split(" ")[0])?c.fg:"#ccc"}" onclick="scanned[${i}].category='${c.name}';renderScan()">${c.emoji}</button>`).join("")}</div>
+        <button onclick="toggleEditScan(${i})" style="background:${isEditing?'#FFF0F3':'#f8f8f8'};border:${isEditing?'1.5px solid #D1477A':'1px solid #eee'};border-radius:8px;padding:4px 8px;font-size:12px;cursor:pointer;color:${isEditing?'#D1477A':'#aaa'};font-family:inherit">✏️</button>
+      </div>`;
+
+    // Editable fields (shown when edit is toggled)
+    if(isEditing){
+      h+=`<div style="background:#FFF8FA;border-radius:12px;padding:12px;margin:8px 0">
+        <div style="margin-bottom:8px">
+          <label style="font-size:9px;color:#aaa;font-weight:600;text-transform:uppercase;display:block;margin-bottom:3px">Description</label>
+          <input class="form-input" style="font-size:12px;padding:8px 12px" value="${it.description}" oninput="updateScanField(${i},'description',this.value)">
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:8px">
+          <div style="flex:1">
+            <label style="font-size:9px;color:#aaa;font-weight:600;text-transform:uppercase;display:block;margin-bottom:3px">Amount (¥)</label>
+            <input type="number" class="form-input" style="font-size:12px;padding:8px 12px;color:#D1477A;font-weight:700" value="${it.amount}" oninput="updateScanField(${i},'amount',this.value)">
+          </div>
+          <div style="flex:1">
+            <label style="font-size:9px;color:#aaa;font-weight:600;text-transform:uppercase;display:block;margin-bottom:3px">Date</label>
+            <input type="date" class="form-input" style="font-size:12px;padding:8px 12px" value="${it.date}" oninput="updateScanField(${i},'date',this.value)">
+          </div>
+        </div>
+        <div style="margin-bottom:8px">
+          <label style="font-size:9px;color:#aaa;font-weight:600;text-transform:uppercase;display:block;margin-bottom:3px">Remarks</label>
+          <input class="form-input" style="font-size:12px;padding:8px 12px" value="${it.remarks||''}" oninput="updateScanField(${i},'remarks',this.value)" placeholder="Add a note...">
+        </div>
+        <div style="margin-bottom:4px">
+          <label style="font-size:9px;color:#aaa;font-weight:600;text-transform:uppercase;display:block;margin-bottom:3px">Payment</label>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">${PAYS.map(p=>`<button style="padding:4px 12px;border-radius:12px;border:${it.payment===p?'1.5px solid #D1477A':'1px solid #eee'};background:${it.payment===p?'#FFF0F3':'#fff'};color:${it.payment===p?'#D1477A':'#aaa'};font-size:11px;font-weight:500;cursor:pointer;font-family:inherit" onclick="scanned[${i}].payment='${p}';renderScan()">${p}</button>`).join("")}</div>
+        </div>
+        <button onclick="toggleEditScan(${i})" style="width:100%;padding:8px;border-radius:10px;border:none;background:#D1477A;color:#fff;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;margin-top:6px">Done editing ✓</button>
+      </div>`;
+    }
+
+    // Category buttons (always visible)
+    h+=`<div class="scan-cats">${CATS.map((c,ci)=>`<button class="scan-cat-btn" style="border:${(it.category||"").startsWith(c.name.split(" ")[0])?"1.5px solid "+c.fg:"1px solid #eee"};background:${(it.category||"").startsWith(c.name.split(" ")[0])?c.bg:"#fff"};color:${(it.category||"").startsWith(c.name.split(" ")[0])?c.fg:"#ccc"}" onclick="scanned[${i}].category='${c.name}';renderScan()">${c.emoji}</button>`).join("")}</div>
     </div>`;
   });
   h+=`<button class="btn-full" onclick="saveScan()">Save ${scanned.filter(s=>s.sel).length} Expenses ✨</button>`;
@@ -355,7 +399,7 @@ function renderScan(){
 function saveScan(){
   const sel=scanned.filter(s=>s.sel);if(!sel.length){toast("Select at least one 💕");return}
   sel.forEach(s=>exps.unshift({id:Date.now()+""+Math.random(),date:s.date,description:s.description,category:s.category,amount:+s.amount,payment:s.payment,remarks:s.remarks||""}));
-  save();toast(sel.length+" added ✨");scanned=[];go("home");
+  save();toast(sel.length+" added ✨");scanned=[];editingScanIdx=-1;go("home");
 }
 
 // ═══ DASHBOARD ═══
