@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -403,11 +404,35 @@ function saveScan(){
 }
 
 // ═══ DASHBOARD ═══
+let pdfMonth = mo(); // default to current month
+
+function getAvailableMonths(){
+  const months = new Set();
+  exps.forEach(e => { if(e.date) months.add(e.date.slice(0,7)); });
+  return Array.from(months).sort().reverse();
+}
+
 function renderDashboard(){
   const mt=monthT(),m=mo(),bl=B()-mt,bp=B()>0?Math.min(100,mt/B()*100):0;
+  const availMonths = getAvailableMonths();
+  
   let h=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
     <div style="font-size:20px;font-weight:700">📊 Dashboard</div>
-    <button class="btn-small" onclick="genPDF()">📄 PDF for Parents</button>
+  </div>`;
+
+  // PDF Export card
+  h+=`<div class="card" style="padding:16px;margin-bottom:14px;border:1.5px solid #F3EEFF">
+    <div class="card-title">📄 Export Report for Parents</div>
+    <div style="display:flex;gap:10px;align-items:center">
+      <select id="pdfMonthSelect" onchange="pdfMonth=this.value" style="flex:1;padding:10px 14px;border-radius:12px;border:1.5px solid #f0e8f0;background:#fff;color:#3a3a4a;font-size:13px;font-family:'Poppins',sans-serif;font-weight:600;outline:none">
+        ${availMonths.length ? availMonths.map(m => {
+          const parts = m.split("-");
+          const label = mons[parseInt(parts[1])-1] + " " + parts[0];
+          return '<option value="'+m+'"'+(m===pdfMonth?' selected':'')+'>'+label+'</option>';
+        }).join("") : '<option>No data yet</option>'}
+      </select>
+      <button onclick="genPDF()" style="padding:10px 20px;border-radius:12px;border:none;background:linear-gradient(135deg,#D1477A,#E87DA8);color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap;box-shadow:0 4px 16px rgba(209,71,122,.2)">📄 Download</button>
+    </div>
   </div>`;
 
   // Budget card
@@ -531,22 +556,38 @@ function saveSettings(){
 
 // ═══ PDF ═══
 function genPDF(){
-  const mt=monthT(),m=mo(),bl=B()-mt,bp=B()>0?Math.min(100,mt/B()*100):0;
-  const mExps=exps.filter(e=>(e.date||"").startsWith(m)).sort((a,b)=>a.date.localeCompare(b.date));
+  const selMonth = pdfMonth || mo();
+  const parts = selMonth.split("-");
+  const ml = mons[parseInt(parts[1])-1] + " " + parts[0];
+  const mExps=exps.filter(e=>(e.date||"").startsWith(selMonth)).sort((a,b)=>a.date.localeCompare(b.date));
+  
+  if(!mExps.length){toast("No expenses for "+ml+" 😢");return}
+  
+  const mt=mExps.reduce((s,e)=>s+(+e.amount||0),0);
+  const bl=B()-mt,bp=B()>0?Math.min(100,mt/B()*100):0;
   const catS=CATS.map(c=>({name:c.name,emoji:c.emoji,total:mExps.filter(e=>(e.category||"").startsWith(c.name.split(" ")[0])).reduce((s,e)=>s+(+e.amount||0),0)})).filter(c=>c.total>0);
-  const now=new Date(),ml=mons[now.getMonth()]+" "+now.getFullYear();
-  const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><style>@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap");*{margin:0;padding:0;box-sizing:border-box}body{font-family:"Poppins",sans-serif;background:#fff;color:#3a3a4a;padding:32px}.header{text-align:center;margin-bottom:28px;padding-bottom:20px;border-bottom:2px solid #F8A4BE}.header h1{font-size:22px;color:#D1477A;font-weight:700}.header p{font-size:12px;color:#999;margin-top:4px}.stats{display:flex;gap:16px;margin-bottom:24px}.stat{flex:1;background:#FFF0F3;border-radius:12px;padding:16px;text-align:center}.stat .label{font-size:10px;color:#999;text-transform:uppercase;letter-spacing:1px}.stat .val{font-size:20px;font-weight:700;color:#D1477A;margin-top:4px}.stat .sub{font-size:10px;color:#aaa;margin-top:2px}h2{font-size:14px;color:#D1477A;margin:20px 0 12px;font-weight:600}.cat-row{display:flex;justify-content:space-between;padding:8px 12px;border-radius:8px;margin-bottom:4px;font-size:12px}.cat-row:nth-child(odd){background:#fafafa}table{width:100%;border-collapse:collapse;font-size:11px;margin-top:8px}th{background:#FFF0F3;color:#D1477A;padding:8px;text-align:left;font-weight:600;font-size:10px;text-transform:uppercase}td{padding:7px 8px;border-bottom:1px solid #f0f0f0}.footer{margin-top:28px;text-align:center;font-size:10px;color:#bbb;border-top:1px solid #eee;padding-top:16px}</style></head><body>`+
-    `<div class="header"><h1>🌸 Xi'an Monthly Expense Report</h1><p>${ml} — Student Life in Xi'an, China</p><p style="margin-top:8px;font-size:11px;color:#bbb">Exchange Rate: 1 CNY = Rp${R().toLocaleString()}</p></div>`+
-    `<div class="stats"><div class="stat"><div class="label">Total Spent</div><div class="val">¥${mt.toFixed(2)}</div><div class="sub">Rp${(mt*R()).toLocaleString()}</div></div>`+
-    `<div class="stat"><div class="label">Budget</div><div class="val">¥${B().toLocaleString()}</div><div class="sub">Rp${(B()*R()).toLocaleString()}</div></div>`+
-    `<div class="stat"><div class="label">Remaining</div><div class="val" style="color:${bl>=0?"#2A9D8F":"#C44040"}">¥${bl.toFixed(2)}</div><div class="sub">${bp.toFixed(0)}% used</div></div></div>`+
-    `<h2>📊 Category Breakdown</h2>`+catS.map(c=>`<div class="cat-row"><span>${c.emoji} ${c.name}</span><span style="font-weight:600">¥${c.total.toFixed(2)} <span style="color:#aaa;font-weight:400">(Rp${(c.total*R()).toLocaleString()})</span></span></div>`).join("")+
-    `<h2>📋 All Transactions</h2><table><thead><tr><th>Date</th><th>Description</th><th>Category</th><th>¥ RMB</th><th>Rp IDR</th><th>Payment</th></tr></thead><tbody>`+
-    mExps.map(e=>`<tr><td>${e.date}</td><td>${e.description}</td><td>${e.category}</td><td style="font-weight:600">¥${(+e.amount).toFixed(2)}</td><td>Rp${(+e.amount*R()).toLocaleString()}</td><td>${e.payment}</td></tr>`).join("")+
-    `<tr style="background:#FFF0F3;font-weight:700"><td colspan="3">TOTAL</td><td>¥${mt.toFixed(2)}</td><td>Rp${(mt*R()).toLocaleString()}</td><td></td></tr></tbody></table>`+
-    `<div class="footer">Generated with love from Xi'an 🌸 • ${now.toLocaleDateString()}</div></body></html>`;
-  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([html],{type:"text/html"}));a.download=`xian-expenses-${m}.html`;a.click();
-  toast("Report downloaded 🌸");
+  const now=new Date();
+  const timestamp = now.getFullYear()+"-"+String(now.getMonth()+1).padStart(2,"0")+"-"+String(now.getDate()).padStart(2,"0")+" "+String(now.getHours()).padStart(2,"0")+":"+String(now.getMinutes()).padStart(2,"0")+":"+String(now.getSeconds()).padStart(2,"0");
+  const daysInMonth = mExps.length ? (new Set(mExps.map(e=>e.date))).size : 1;
+  const dailyAvg = mt / daysInMonth;
+  
+  const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap");*{margin:0;padding:0;box-sizing:border-box}body{font-family:"Poppins",sans-serif;background:#fff;color:#3a3a4a;padding:24px;max-width:800px;margin:0 auto}.header{text-align:center;margin-bottom:28px;padding-bottom:20px;border-bottom:2px solid #F8A4BE}.header h1{font-size:20px;color:#D1477A;font-weight:700}.header p{font-size:11px;color:#999;margin-top:4px}.ts{font-size:9px;color:#ccc;margin-top:8px}.stats{display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap}.stat{flex:1;min-width:120px;background:#FFF0F3;border-radius:12px;padding:14px;text-align:center}.stat .label{font-size:9px;color:#999;text-transform:uppercase;letter-spacing:1px}.stat .val{font-size:18px;font-weight:700;color:#D1477A;margin-top:4px}.stat .sub{font-size:9px;color:#aaa;margin-top:2px}h2{font-size:13px;color:#D1477A;margin:18px 0 10px;font-weight:600}.cat-row{display:flex;justify-content:space-between;padding:7px 12px;border-radius:8px;margin-bottom:3px;font-size:11px}.cat-row:nth-child(odd){background:#fafafa}table{width:100%;border-collapse:collapse;font-size:10px;margin-top:8px}th{background:#FFF0F3;color:#D1477A;padding:6px 8px;text-align:left;font-weight:600;font-size:9px;text-transform:uppercase}td{padding:5px 8px;border-bottom:1px solid #f0f0f0}.footer{margin-top:24px;text-align:center;font-size:9px;color:#bbb;border-top:1px solid #eee;padding-top:14px}@media print{body{padding:16px}.stats{gap:8px}}</style></head><body>`+
+    `<div class="header"><h1>🌸 Xi'an Monthly Expense Report</h1><p>${ml} — Student Life in Xi'an, China</p><p style="font-size:10px;color:#bbb;margin-top:4px">Exchange Rate: 1 CNY = Rp${R().toLocaleString()}</p><div class="ts">Generated: ${timestamp}</div></div>`+
+    `<div class="stats"><div class="stat"><div class="label">Total Spent</div><div class="val">&yen;${mt.toFixed(2)}</div><div class="sub">Rp${(mt*R()).toLocaleString()}</div></div>`+
+    `<div class="stat"><div class="label">Budget</div><div class="val" style="color:#7C5CBF">&yen;${B().toLocaleString()}</div><div class="sub">Rp${(B()*R()).toLocaleString()}</div></div>`+
+    `<div class="stat"><div class="label">Remaining</div><div class="val" style="color:${bl>=0?"#2A9D8F":"#C44040"}">&yen;${bl.toFixed(0)}</div><div class="sub">${bp.toFixed(0)}% used</div></div>`+
+    `<div class="stat"><div class="label">Daily Avg</div><div class="val" style="color:#C8842E">&yen;${dailyAvg.toFixed(0)}</div><div class="sub">${mExps.length} transactions</div></div></div>`+
+    `<h2>📊 Category Breakdown</h2>`+catS.map(c=>`<div class="cat-row"><span>${c.emoji} ${c.name}</span><span style="font-weight:600">&yen;${c.total.toFixed(2)} <span style="color:#aaa;font-weight:400">(Rp${(c.total*R()).toLocaleString()})</span></span></div>`).join("")+
+    `<h2>📋 All Transactions (${mExps.length})</h2><table><thead><tr><th>Date</th><th>Description</th><th>Category</th><th>&yen; RMB</th><th>Rp IDR</th><th>Payment</th><th>Notes</th></tr></thead><tbody>`+
+    mExps.map(e=>`<tr><td>${e.date}</td><td>${e.description}</td><td>${e.category}</td><td style="font-weight:600">&yen;${(+e.amount).toFixed(2)}</td><td>Rp${(+e.amount*R()).toLocaleString()}</td><td>${e.payment}</td><td style="font-size:9px;color:#aaa">${e.remarks||""}</td></tr>`).join("")+
+    `<tr style="background:#FFF0F3;font-weight:700"><td colspan="3">TOTAL</td><td>&yen;${mt.toFixed(2)}</td><td>Rp${(mt*R()).toLocaleString()}</td><td colspan="2"></td></tr></tbody></table>`+
+    `<div class="footer">Generated: ${timestamp} 🌸 Xi'an Life Expense Tracker<br>To print: Open in browser → File → Print → Save as PDF</div></body></html>`;
+  
+  // Open in new tab so it renders properly on iPhone
+  const blob = new Blob([html], {type:"text/html"});
+  const url = URL.createObjectURL(blob);
+  window.open(url, "_blank");
+  toast("Report opened! Use Share → Print → Save as PDF 🌸");
 }
 
 // ═══ CLOUD SYNC ═══
