@@ -2,9 +2,8 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).send('Method Not Allowed');
 
   try {
-    // FIX: Accept both 'image' (from your frontend) or 'base64Image'
     const { base64Image, image, prompt } = req.body; 
-    const finalImage = base64Image || image; // Uses whichever one is provided
+    const finalImage = base64Image || image; 
     
     const apiKey = process.env.GEMINI_API_KEY;
     
@@ -16,10 +15,29 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "Missing base64Image or image in request body" });
     }
 
-    // Strip the Data URI prefix if it exists
     const cleanBase64 = finalImage.replace(/^data:image\/[a-z]+;base64,/, "");
     
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${apiKey}`;
+
+    // Universal prompt structure to satisfy any frontend variable naming keys
+    const universalPrompt = `
+      Analyze this receipt image and extract the data into a flat JSON object.
+      You must include all of the following keys to guarantee frontend compatibility:
+      - For the store: include "merchant", "merchantName", and "merchant_name" (use the same store string value for all three).
+      - For the date: include "date" (formatted as YYYY-MM-DD if possible).
+      - For the price: include "amount", "total", and "total_amount" (use the same numeric value for all three).
+      
+      Example format:
+      {
+        "merchant": "Starbucks",
+        "merchantName": "Starbucks",
+        "merchant_name": "Starbucks",
+        "date": "2026-06-17",
+        "amount": 5.75,
+        "total": 5.75,
+        "total_amount": 5.75
+      }
+    `;
 
     const payload = {
       contents: [{
@@ -27,12 +45,12 @@ export default async function handler(req, res) {
         parts: [
           {
             inlineData: {
-              mimeType: req.body.mediaType || "image/jpeg", // Dynamically match frontend mime type
+              mimeType: req.body.mediaType || "image/jpeg", 
               data: cleanBase64 
             }
           },
           { 
-            text: prompt || "Extract the merchant name, date, and total amount from this receipt into JSON format." 
+            text: prompt || universalPrompt 
           }
         ]
       }],
