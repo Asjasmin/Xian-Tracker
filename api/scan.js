@@ -19,7 +19,6 @@ module.exports = async function handler(req, res) {
     
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${apiKey}`;
 
-    // Universal prompt structure to satisfy any frontend variable naming keys
     const exactPrompt = `
       Analyze this receipt/screenshot and extract all expenses into a structured JSON object.
       You MUST return a root object with a single key called "transactions" containing an array of items.
@@ -63,6 +62,7 @@ module.exports = async function handler(req, res) {
         responseMimeType: "application/json" 
       }
     };
+
     const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -75,11 +75,15 @@ module.exports = async function handler(req, res) {
       throw new Error(data.error?.message || 'Gemini API Error');
     }
     
-    let jsonString = data.candidates[0].content.parts[0].text;
-    jsonString = jsonString.replace(/^```json\s*/i, '').replace(/
-```\s*$/, '').trim();
+    // Safe text-extraction block
+    const rawText = data.candidates[0].content.parts[0].text;
+    const jsonMatch = rawText.match(/\{[\s\S]*\}/); 
     
-    const parsedData = JSON.parse(jsonString);
+    if (!jsonMatch) {
+      throw new Error("Model did not return valid JSON.");
+    }
+    
+    const parsedData = JSON.parse(jsonMatch[0]);
     res.status(200).json(parsedData);
 
   } catch (error) {
