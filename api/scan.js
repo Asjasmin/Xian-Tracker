@@ -3,15 +3,19 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).send('Method Not Allowed');
 
   try {
-    // This expects your frontend to send the raw Base64 string and an optional prompt
     const { base64Image, prompt } = req.body; 
-    
-    // Pulling your secure key from Vercel's Environment Variables
     const apiKey = process.env.GEMINI_API_KEY;
     
     if (!apiKey) {
       return res.status(500).json({ error: "Missing GEMINI_API_KEY in Vercel settings" });
     }
+
+    if (!base64Image) {
+      return res.status(400).json({ error: "Missing base64Image in request body" });
+    }
+
+    // FIX 1: Strip the Data URI prefix if it exists (e.g., "data:image/jpeg;base64,")
+    const cleanBase64 = base64Image.replace(/^data:image\/[a-z]+;base64,/, "");
     
     // Using the Pro model for high-accuracy OCR receipt scanning
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${apiKey}`;
@@ -21,10 +25,9 @@ export default async function handler(req, res) {
         role: "user",
         parts: [
           {
-            // Gemini vision requires the image as an inlineData object
             inlineData: {
               mimeType: "image/jpeg", 
-              data: base64Image 
+              data: cleanBase64 // Using the cleaned raw base64 data
             }
           },
           { 
@@ -32,7 +35,6 @@ export default async function handler(req, res) {
           }
         ]
       }],
-      // Forcing the Pro model to return perfectly structured JSON for your database
       generationConfig: {
         responseMimeType: "application/json" 
       }
@@ -51,7 +53,10 @@ export default async function handler(req, res) {
     }
     
     // Extracting the JSON text from Gemini's response structure
-    const jsonString = data.candidates[0].content.parts[0].text;
+    let jsonString = data.candidates[0].content.parts[0].text;
+    
+    // FIX 2: Clean out markdown code blocks if the model accidentally includes them
+    jsonString = jsonString.replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim();
     
     // Parsing the string into an actual JSON object to send back to your frontend
     const parsedData = JSON.parse(jsonString);
