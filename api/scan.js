@@ -20,22 +20,27 @@ export default async function handler(req, res) {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${apiKey}`;
 
     // Universal prompt structure to satisfy any frontend variable naming keys
-    const universalPrompt = `
-      Analyze this receipt image and extract the data into a flat JSON object.
-      You must include all of the following keys to guarantee frontend compatibility:
-      - For the store: include "merchant", "merchantName", and "merchant_name" (use the same store string value for all three).
-      - For the date: include "date" (formatted as YYYY-MM-DD if possible).
-      - For the price: include "amount", "total", and "total_amount" (use the same numeric value for all three).
-      
+    const exactPrompt = `
+      Analyze this receipt/screenshot and extract all expenses into a structured JSON object.
+      You MUST return a root object with a single key called "transactions" containing an array of items.
+      Each item in the array MUST contain these exact keys to prevent the app from crashing:
+      - "description": The merchant name or specific item name.
+      - "date": The date of the purchase (format: YYYY-MM-DD).
+      - "amount": The total price as a pure number.
+      - "category": A short 1-2 word category (e.g., "Food", "Transport", "Shopping").
+      - "remarks": Any extra context, or just an empty string "".
+
       Example format:
       {
-        "merchant": "Starbucks",
-        "merchantName": "Starbucks",
-        "merchant_name": "Starbucks",
-        "date": "2026-06-17",
-        "amount": 5.75,
-        "total": 5.75,
-        "total_amount": 5.75
+        "transactions": [
+          {
+            "description": "Starbucks",
+            "date": "2026-06-17",
+            "amount": 5.75,
+            "category": "Food",
+            "remarks": "Morning coffee"
+          }
+        ]
       }
     `;
 
@@ -50,7 +55,7 @@ export default async function handler(req, res) {
             }
           },
           { 
-            text: prompt || universalPrompt 
+            text: prompt || exactPrompt 
           }
         ]
       }],
@@ -58,7 +63,6 @@ export default async function handler(req, res) {
         responseMimeType: "application/json" 
       }
     };
-
     const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
